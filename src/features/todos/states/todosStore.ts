@@ -1,116 +1,191 @@
-import { derived, get, writable } from "svelte/store";
-import * as todoApi from "../api/todoApi";
+import { writable } from "svelte/store";
+import todoApi, { type Todo } from "../api/todoApi";
+import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
 
-export type TodoItem = {
-  id: number;
-  title: string;
-  description?: string;
-  cover?: string | null;
-  is_finished?: number;
-  created_at?: string;
-  author?: { name?: string; photo?: string | null };
-};
-
-export const todos = writable<TodoItem[]>([]);
-export const selectedTodo = writable<TodoItem | null>(null);
-export const showOnlyMine = writable(false);
-export const searchQuery = writable("");
-
-/** Bendera mutasi: true selama permintaan tulis sedang berjalan. */
-export const mutations = writable({
-  isAdding: false,
-  isChanging: false,
-  isChangingCover: false,
-  isDeleting: false,
-  isDeletingAll: false,
-});
-
-/** Mencocokkan judul, deskripsi, dan nama pemilik tanpa membedakan huruf besar-kecil. */
-export function filterTodos(list: TodoItem[], query: string) {
-  const keyword = query.trim().toLowerCase();
-  if (!keyword) return list;
-
-  return list.filter((todo) =>
-    [todo.title, todo.description, todo.author?.name].some((value) =>
-      (value ?? "").toLowerCase().includes(keyword)
-    )
-  );
+export interface TodosState {
+  todos: Todo[];
+  todo: Todo | null;
+  isTodo: boolean;
+  isTodoAdd: boolean;
+  isTodoAdded: boolean;
+  isTodoChange: boolean;
+  isTodoChanged: boolean;
+  isTodoChangeCover: boolean;
+  isTodoChangedCover: boolean;
+  isTodoDelete: boolean;
+  isTodoDeleted: boolean;
 }
 
-export const visibleTodos = derived([todos, searchQuery], ([$todos, $searchQuery]) =>
-  filterTodos($todos, $searchQuery)
-);
+function createTodosStore() {
+  const initial: TodosState = {
+    todos: [],
+    todo: null,
+    isTodo: false,
+    isTodoAdd: false,
+    isTodoAdded: false,
+    isTodoChange: false,
+    isTodoChanged: false,
+    isTodoChangeCover: false,
+    isTodoChangedCover: false,
+    isTodoDelete: false,
+    isTodoDeleted: false,
+  };
 
-export const todoStats = derived(todos, ($todos) => ({
-  total: $todos.length,
-  finished: $todos.filter((todo) => Boolean(todo.is_finished)).length,
-  unfinished: $todos.filter((todo) => !todo.is_finished).length,
-}));
-
-async function withMutation<T>(flag: keyof typeof mutations extends never ? string : string, action: () => Promise<T>) {
-  mutations.update((state) => ({ ...state, [flag]: true }));
-  try {
-    return await action();
-  } finally {
-    mutations.update((state) => ({ ...state, [flag]: false }));
-  }
-}
-
-export async function loadTodos() {
-  todos.set(await todoApi.getTodos(get(showOnlyMine)));
-}
-
-export async function setShowOnlyMine(value: boolean) {
-  showOnlyMine.set(value);
-  await loadTodos();
-}
-
-export async function loadTodo(todoId: string | number) {
-  selectedTodo.set(await todoApi.getTodo(todoId));
-}
-
-async function refreshTodo(todoId: string | number) {
-  await loadTodo(todoId);
-  await loadTodos();
-}
-
-export function createTodo(payload: { title: string; description: string }) {
-  return withMutation("isAdding", async () => {
-    const todoId = await todoApi.createTodo(payload);
-    await loadTodos();
-    return todoId;
+  let currentState: TodosState = { ...initial };
+  const innerStore = writable<TodosState>(currentState);
+  innerStore.subscribe((val) => {
+    currentState = val;
   });
+
+  return {
+    subscribe: innerStore.subscribe,
+    get todos() {
+      return currentState.todos;
+    },
+    get todo() {
+      return currentState.todo;
+    },
+    get isTodo() {
+      return currentState.isTodo;
+    },
+    get isTodoAdd() {
+      return currentState.isTodoAdd;
+    },
+    get isTodoAdded() {
+      return currentState.isTodoAdded;
+    },
+    get isTodoChange() {
+      return currentState.isTodoChange;
+    },
+    get isTodoChanged() {
+      return currentState.isTodoChanged;
+    },
+    get isTodoChangeCover() {
+      return currentState.isTodoChangeCover;
+    },
+    get isTodoChangedCover() {
+      return currentState.isTodoChangedCover;
+    },
+    get isTodoDelete() {
+      return currentState.isTodoDelete;
+    },
+    get isTodoDeleted() {
+      return currentState.isTodoDeleted;
+    },
+    get $state() {
+      return currentState;
+    },
+    reset(state: Partial<TodosState> = initial) {
+      innerStore.set({ ...initial, ...state });
+    },
+    setTodos(todos: Todo[]) {
+      innerStore.update((s) => ({ ...s, todos }));
+    },
+    setTodo(todo: Todo | null) {
+      innerStore.update((s) => ({ ...s, todo }));
+    },
+    setIsTodo(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodo: status }));
+    },
+    setIsTodoAdd(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoAdd: status }));
+    },
+    setIsTodoAdded(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoAdded: status }));
+    },
+    setIsTodoChange(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoChange: status }));
+    },
+    setIsTodoChanged(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoChanged: status }));
+    },
+    setIsChangeCover(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoChangeCover: status }));
+    },
+    setIsChangedCover(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoChangedCover: status }));
+    },
+    setIsTodoChangeCover(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoChangeCover: status }));
+    },
+    setIsTodoChangedCover(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoChangedCover: status }));
+    },
+    setIsTodoDelete(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoDelete: status }));
+    },
+    setIsTodoDeleted(status: boolean) {
+      innerStore.update((s) => ({ ...s, isTodoDeleted: status }));
+    },
+    async asyncSetTodos(is_finished: string | number = "") {
+      try {
+        const todos = await todoApi.getTodos(is_finished);
+        this.setTodos(todos);
+      } catch {
+        this.setTodos([]);
+      }
+    },
+    async asyncSetTodo(todoId: string | number) {
+      try {
+        const todo = await todoApi.getTodoById(todoId);
+        this.setTodo(todo);
+      } catch {
+        this.setTodo(null);
+      } finally {
+        this.setIsTodo(true);
+      }
+    },
+    async asyncSetIsTodoAdd(title: string, description: string) {
+      try {
+        await todoApi.postTodo(title, description);
+        showSuccessDialog("Todo berhasil ditambahkan!");
+        this.setIsTodoAdded(true);
+      } catch (error: any) {
+        showErrorDialog(error.message);
+        this.setIsTodoAdded(false);
+      } finally {
+        this.setIsTodoAdd(true);
+      }
+    },
+    async asyncSetIsTodoChange(todoId: string | number, title: string, description: string, is_finished: boolean | number) {
+      try {
+        const message = await todoApi.putTodo(todoId, title, description, is_finished);
+        showSuccessDialog(message || "Todo berhasil diubah!");
+        this.setIsTodoChanged(true);
+      } catch (error: any) {
+        showErrorDialog(error.message);
+        this.setIsTodoChanged(false);
+      } finally {
+        this.setIsTodoChange(true);
+      }
+    },
+    async asyncSetIsTodoChangeCover(todoId: string | number, cover: File) {
+      try {
+        const message = await todoApi.postTodoCover(todoId, cover);
+        showSuccessDialog(message || "Cover todo berhasil diubah!");
+        this.setIsTodoChangedCover(true);
+      } catch (error: any) {
+        showErrorDialog(error.message);
+        this.setIsTodoChangedCover(false);
+      } finally {
+        this.setIsTodoChangeCover(true);
+      }
+    },
+    async asyncSetIsTodoDelete(todoId: string | number) {
+      try {
+        const message = await todoApi.deleteTodo(todoId);
+        showSuccessDialog(message || "Todo berhasil dihapus!");
+        this.setIsTodoDeleted(true);
+      } catch (error: any) {
+        showErrorDialog(error.message);
+        this.setIsTodoDeleted(false);
+      } finally {
+        this.setIsTodoDelete(true);
+      }
+    },
+  };
 }
 
-export function updateTodo(
-  todoId: string | number,
-  payload: { title: string; description: string; is_finished: number }
-) {
-  return withMutation("isChanging", async () => {
-    await todoApi.updateTodo(todoId, payload);
-    await refreshTodo(todoId);
-  });
-}
-
-export function changeCover(todoId: string | number, file: File) {
-  return withMutation("isChangingCover", async () => {
-    await todoApi.updateTodoCover(todoId, file);
-    await refreshTodo(todoId);
-  });
-}
-
-export function removeTodo(todoId: string | number) {
-  return withMutation("isDeleting", async () => {
-    await todoApi.deleteTodo(todoId);
-    selectedTodo.set(null);
-    await loadTodos();
-  });
-}
-
-export function removeAllTodos() {
-  return withMutation("isDeletingAll", async () => {
-    await todoApi.deleteAllTodos();
-    selectedTodo.set(null);
-    await loadTodos();
-  });
-}
+export const todosStore = createTodosStore();
+export const useTodosStore = () => todosStore;
+export default todosStore;

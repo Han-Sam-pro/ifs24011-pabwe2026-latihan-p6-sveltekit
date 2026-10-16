@@ -1,23 +1,81 @@
-import { apiFetch } from "../../../helpers/apiHelper";
+import apiHelper from "../../../helpers/apiHelper";
 
-export async function register({ name, email, password }: { name: string; email: string; password: string }) {
-  return apiFetch("/auth/register", {
-    method: "POST",
-    body: { name, email, password },
-    auth: false,
-  });
-}
+declare const DELCOM_BASEURL: string;
 
-/** Mengembalikan { user, token } dari respons login. */
-export async function login(email: string, password: string) {
-  const json = await apiFetch("/auth/login", {
-    method: "POST",
-    body: { email, password },
-    auth: false,
-  });
-  return json.data;
-}
+const authApi = (() => {
+  const BASE_URL = `${DELCOM_BASEURL}/auth`;
 
-export async function logout() {
-  return apiFetch("/auth/logout", { method: "POST" });
-}
+  function _url(path: string): string {
+    return BASE_URL + path;
+  }
+
+  async function postRegister(name: string, email: string, password: string): Promise<string> {
+    const response = await apiHelper.fetchData(_url("/register"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+      }),
+    });
+
+    const result = await response.json();
+    if (result.status !== "success" && !result.success) {
+      const errorDetails =
+        result.data && typeof result.data === "object"
+          ? Object.values(result.data).flat().join(", ")
+          : "";
+      const baseMsg = result.message || "Gagal melakukan pendaftaran";
+      throw new Error(errorDetails ? `${baseMsg}: ${errorDetails}` : baseMsg);
+    }
+
+    return result.message;
+  }
+
+  async function postLogin(email: string, password: string): Promise<{ token: string; user?: any }> {
+    const response = await apiHelper.fetchData(_url("/login"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    const result = await response.json();
+    if (result.status !== "success" && !result.success) {
+      throw new Error(result.message || "Gagal login");
+    }
+
+    return result.data;
+  }
+
+  async function postLogout(): Promise<string> {
+    const response = await apiHelper.fetchData(_url("/logout"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const result = await response.json();
+    if (result.status !== "success" && !result.success) {
+      throw new Error(result.message || "Gagal logout");
+    }
+
+    return result.message;
+  }
+
+  return {
+    postRegister,
+    postLogin,
+    postLogout,
+  };
+})();
+
+export default authApi;

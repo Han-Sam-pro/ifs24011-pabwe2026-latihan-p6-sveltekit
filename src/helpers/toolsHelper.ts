@@ -1,52 +1,70 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import Swal from "sweetalert2";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-export function showSuccessDialog(message: string) {
-  return Swal.fire({
-    icon: "success",
-    title: "Berhasil",
-    text: message,
-  });
-}
 
 export function showErrorDialog(message: string) {
   return Swal.fire({
-    icon: "error",
-    title: "Gagal",
+    title: "Terjadi Kesalahan",
     text: message,
+    icon: "error",
+    confirmButtonText: "Tutup",
+    confirmButtonColor: "#ef4444",
+  }).then((result) => {
+    if (result.isConfirmed) {
+      Swal.close();
+    }
+    return result;
   });
 }
 
 export function showWarningDialog(message: string) {
   return Swal.fire({
-    icon: "warning",
     title: "Peringatan",
     text: message,
+    icon: "warning",
+    confirmButtonText: "Tutup",
+    confirmButtonColor: "#f59e0b",
+  }).then((result) => {
+    if (result.isConfirmed) {
+      Swal.close();
+    }
+    return result;
   });
 }
 
-/** Mengembalikan true bila pengguna menekan tombol konfirmasi. */
-export function showConfirmDialog(message: string) {
+export function showSuccessDialog(message: string) {
   return Swal.fire({
-    icon: "question",
-    title: "Konfirmasi",
+    title: "Tindakan Berhasil",
     text: message,
-    showCancelButton: true,
-    confirmButtonText: "Ya",
-    cancelButtonText: "Batal",
-  }).then((result) => result.isConfirmed);
+    icon: "success",
+    confirmButtonText: "Tutup",
+    confirmButtonColor: "#10b981",
+  }).then((result) => {
+    if (result.isConfirmed) {
+      Swal.close();
+    }
+    return result;
+  });
 }
 
-export function formatDate(value?: string | null) {
-  if (!value) return "-";
+export function showConfirmDialog(message: string) {
+  return Swal.fire({
+    title: "Konfirmasi",
+    text: message,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Ya",
+    cancelButtonText: "Tidak",
+    confirmButtonColor: "#6366f1",
+    cancelButtonColor: "#94a3b8",
+  });
+}
 
-  return new Date(value).toLocaleString("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
+export function formatDate(date: string | number | Date | null | undefined): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }

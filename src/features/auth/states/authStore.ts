@@ -1,42 +1,86 @@
-import { derived, writable } from "svelte/store";
-import { getAccessToken, putAccessToken, removeAccessToken } from "../../../helpers/apiHelper";
-import * as authApi from "../api/authApi";
+import { writable } from "svelte/store";
+import authApi from "../api/authApi";
+import apiHelper from "../../../helpers/apiHelper";
+import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
 
-export type AuthUser = {
-  id?: number;
-  name?: string;
-  email?: string;
-  photo?: string | null;
-  created_at?: string;
-};
-
-export const authStore = writable({
-  token: typeof localStorage === "undefined" ? null : getAccessToken(),
-  user: null as AuthUser | null,
-  isLogin: false,
-});
-
-export const isAuthenticated = derived(authStore, ($auth) => Boolean($auth.token));
-
-export async function login(email: string, password: string) {
-  const { user, token } = await authApi.login(email, password);
-
-  putAccessToken(token);
-  authStore.set({ token, user, isLogin: true });
-
-  return user;
+export interface AuthState {
+  isAuthLogin: boolean;
+  isAuthRegister: boolean;
+  isAuthLogout: boolean;
 }
 
-export async function register(payload: { name: string; email: string; password: string }) {
-  return authApi.register(payload);
+function createAuthStore() {
+  const initial: AuthState = {
+    isAuthLogin: false,
+    isAuthRegister: false,
+    isAuthLogout: false,
+  };
+
+  let currentState: AuthState = { ...initial };
+  const innerStore = writable<AuthState>(currentState);
+  innerStore.subscribe((val) => {
+    currentState = val;
+  });
+
+  return {
+    subscribe: innerStore.subscribe,
+    get isAuthLogin() {
+      return currentState.isAuthLogin;
+    },
+    get isAuthRegister() {
+      return currentState.isAuthRegister;
+    },
+    get isAuthLogout() {
+      return currentState.isAuthLogout;
+    },
+    get $state() {
+      return currentState;
+    },
+    reset(state: Partial<AuthState> = initial) {
+      innerStore.set({ ...initial, ...state });
+    },
+    setIsAuthLogin(value: boolean) {
+      innerStore.update((s) => ({ ...s, isAuthLogin: value }));
+    },
+    setIsAuthRegister(value: boolean) {
+      innerStore.update((s) => ({ ...s, isAuthRegister: value }));
+    },
+    setIsAuthLogout(value: boolean) {
+      innerStore.update((s) => ({ ...s, isAuthLogout: value }));
+    },
+    async asyncSetIsAuthLogin(email: string, password: string) {
+      try {
+        const data = await authApi.postLogin(email, password);
+        apiHelper.putAccessToken(data.token);
+        this.setIsAuthLogin(true);
+      } catch (error: any) {
+        this.setIsAuthLogin(false);
+        showErrorDialog(error.message);
+      }
+    },
+    async asyncSetIsAuthRegister(name: string, email: string, password: string) {
+      try {
+        const message = await authApi.postRegister(name, email, password);
+        this.setIsAuthRegister(true);
+        showSuccessDialog(message);
+      } catch (error: any) {
+        this.setIsAuthRegister(false);
+        showErrorDialog(error.message);
+      }
+    },
+    async asyncSetIsAuthLogout() {
+      try {
+        await authApi.postLogout();
+      } catch {
+        // Still proceed with clearing token locally even if server error
+      } finally {
+        apiHelper.putAccessToken("");
+        this.setIsAuthLogout(true);
+      }
+    },
+  };
 }
 
-/** Selalu membersihkan sesi lokal, meskipun permintaan logout ke server gagal. */
-export async function logout() {
-  try {
-    await authApi.logout();
-  } finally {
-    removeAccessToken();
-    authStore.set({ token: null, user: null, isLogin: false });
-  }
-}
+export const authStore = createAuthStore();
+export const useAuthStore = () => authStore;
+export default authStore;
